@@ -1,7 +1,9 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <pcl/io/ply_io.h>
+ #include <pcl_conversions/pcl_conversions.h>
 void callback(const sensor_msgs::LaserScan::ConstPtr &msg)
 {
         pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
@@ -30,6 +32,23 @@ void callback(const sensor_msgs::LaserScan::ConstPtr &msg)
             pcl::io::savePLYFile("scan.ply", *cloud);
 
 }
+int num = 0;
+pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_all(new pcl::PointCloud<pcl::PointXYZI>);
+void pointcloud2_callback(const sensor_msgs::PointCloud2::ConstPtr& msg)
+{
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::fromROSMsg(*msg, *cloud);
+    *cloud_all += *cloud;
+    num++;
+    if(num > 100)
+    {
+        cloud_all->width = cloud_all->points.size();
+        cloud_all->height = 1;
+        cloud_all->is_dense = false;
+        pcl::io::savePLYFile("pointcloud_all.ply", *cloud_all);
+        num = 0;
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -39,6 +58,9 @@ int main(int argc, char **argv)
     std::string cloud_topic;
     nh.param<std::string>("cloud_topic", cloud_topic, "/front_scan");
     ros::Subscriber sub = nh.subscribe(cloud_topic, 10, callback);
+    std::string pointcloud2_topic;
+    nh.param<std::string>("pointcloud2_topic", pointcloud2_topic, "/scan_matched_points2");
+    ros::Subscriber sub2 = nh.subscribe(pointcloud2_topic, 10, pointcloud2_callback);
     // 开始循环等待回调函数
     ros::spin();
 
